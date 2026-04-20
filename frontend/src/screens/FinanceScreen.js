@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { financeService } from '../services/api';
 
 export default function FinanceScreen() {
@@ -18,6 +20,7 @@ export default function FinanceScreen() {
   const [profitLoss, setProfitLoss] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [transactionType, setTransactionType] = useState('expense');
   const [formData, setFormData] = useState({
     type: 'expense',
@@ -84,6 +87,40 @@ export default function FinanceScreen() {
     }
   };
 
+  const updateTransaction = async () => {
+    if (!formData.amount) {
+      Alert.alert('Error', 'Please enter amount');
+      return;
+    }
+    try {
+      await financeService.updateTransaction(editingItem._id, {
+        ...formData,
+        amount: parseFloat(formData.amount),
+        type: transactionType,
+      });
+      Alert.alert('Success', 'Transaction updated successfully');
+      setModalVisible(false);
+      setEditingItem(null);
+      resetForm();
+      fetchData();
+    } catch (error) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to update transaction');
+    }
+  };
+
+  const openEditModal = (item) => {
+    setEditingItem(item);
+    setTransactionType(item.type);
+    setFormData({
+      type: item.type,
+      category: item.category || 'other',
+      amount: item.amount?.toString() || '',
+      description: item.description || '',
+      date: item.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    });
+    setModalVisible(true);
+  };
+
   const deleteTransaction = async (id) => {
     Alert.alert('Delete', 'Delete this transaction?', [
       { text: 'Cancel', style: 'cancel' },
@@ -112,6 +149,26 @@ export default function FinanceScreen() {
     });
   };
 
+  const exportCSV = async () => {
+     try {
+       let csvContent = "Date,Type,Category,Description,Amount\n";
+       transactions.forEach(t => {
+          csvContent += `${new Date(t.date).toISOString().split('T')[0]},${t.type},${t.category},${(t.description || '').replace(',',' ')},${t.amount}\n`;
+       });
+       
+       const fileUri = FileSystem.documentDirectory + "Finance_Export.csv";
+       await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+       
+       if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri);
+       } else {
+          Alert.alert('Export Failed', 'Sharing operations not supported on this device simulation.');
+       }
+     } catch(err) {
+       Alert.alert('Error', 'Failed to generate CSV documentation');
+     }
+  };
+
   const renderTransaction = ({ item }) => (
     <View style={[styles.transactionCard, item.type === 'income' ? styles.incomeCard : styles.expenseCard]}>
       <View style={styles.transactionLeft}>
@@ -123,6 +180,9 @@ export default function FinanceScreen() {
         <Text style={[styles.transactionAmount, item.type === 'income' ? styles.incomeAmount : styles.expenseAmount]}>
           {item.type === 'income' ? '+' : '-'} LKR {item.amount.toLocaleString()}
         </Text>
+        <TouchableOpacity onPress={() => openEditModal(item)}>
+          <Text style={styles.editIcon}>✏️</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => deleteTransaction(item._id)}>
           <Text style={styles.deleteIcon}>🗑️</Text>
         </TouchableOpacity>
@@ -152,11 +212,23 @@ export default function FinanceScreen() {
                 <Text style={styles.summaryItemLabel}>Income</Text>
                 <Text style={styles.incomeText}>LKR {(profitLoss.totalIncome || 0).toLocaleString()}</Text>
               </View>
-              <View style={styles.summaryItem}>
+            <View style={styles.summaryItem}>
                 <Text style={styles.summaryItemLabel}>Expenses</Text>
                 <Text style={styles.expenseText}>LKR {(profitLoss.totalExpense || 0).toLocaleString()}</Text>
               </View>
             </View>
+
+            {/* Income vs Expense Graph Block */}
+            {((profitLoss?.totalIncome || 0) + (profitLoss?.totalExpense || 0)) > 0 && (
+                <View style={styles.chartWrapper}>
+                   <View style={[styles.chartBar, { backgroundColor: '#4caf50', width: `${(profitLoss.totalIncome / (profitLoss.totalIncome + profitLoss.totalExpense)) * 100}%` }]} />
+                   <View style={[styles.chartBar, { backgroundColor: '#f44336', width: `${(profitLoss.totalExpense / (profitLoss.totalIncome + profitLoss.totalExpense)) * 100}%` }]} />
+                </View>
+            )}
+            <TouchableOpacity style={styles.exportCSVBtn} onPress={exportCSV}>
+               <Text style={{color: '#fff', fontSize: 13, fontWeight: 'bold'}}>📥 Export CSV Analytics</Text>
+            </TouchableOpacity>
+
           </View>
         )}
 
@@ -175,14 +247,14 @@ export default function FinanceScreen() {
         />
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={() => { resetForm(); setModalVisible(true); }}>
+      <TouchableOpacity style={styles.fab} onPress={() => { setEditingItem(null); resetForm(); setModalVisible(true); }}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
       <Modal animationType="slide" transparent visible={modalVisible}>
         <View style={styles.modalContainer}>
           <ScrollView contentContainerStyle={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Transaction</Text>
+            <Text style={styles.modalTitle}>{editingItem ? 'Edit Transaction' : 'Add Transaction'}</Text>
 
             <View style={styles.typeSelector}>
               <TouchableOpacity
@@ -214,7 +286,7 @@ export default function FinanceScreen() {
               ))}
             </View>
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Amount (LKR)"
               keyboardType="numeric"
@@ -222,14 +294,14 @@ export default function FinanceScreen() {
               onChangeText={(text) => setFormData({ ...formData, amount: text })}
             />
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Description (optional)"
               value={formData.description}
               onChangeText={(text) => setFormData({ ...formData, description: text })}
             />
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Date (YYYY-MM-DD)"
               value={formData.date}
@@ -237,11 +309,11 @@ export default function FinanceScreen() {
             />
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => { setModalVisible(false); resetForm(); }}>
+              <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => { setModalVisible(false); setEditingItem(null); resetForm(); }}>
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={createTransaction}>
-                <Text style={styles.buttonText}>Save</Text>
+              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={editingItem ? updateTransaction : createTransaction}>
+                <Text style={styles.buttonText}>{editingItem ? 'Update' : 'Save'}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -264,6 +336,11 @@ const styles = StyleSheet.create({
   summaryItemLabel: { fontSize: 12, color: '#a5d6a7' },
   incomeText: { fontSize: 16, fontWeight: 'bold', color: '#c8e6c9' },
   expenseText: { fontSize: 16, fontWeight: 'bold', color: '#ffcdd2' },
+  
+  chartWrapper: { flexDirection: 'row', width: '100%', height: 10, borderRadius: 5, overflow: 'hidden', marginTop: 25 },
+  chartBar: { height: '100%' },
+  exportCSVBtn: { marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20 },
+
   sectionTitle: { fontSize: 18, fontWeight: 'bold', margin: 15, color: '#333' },
   transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 15, marginVertical: 5, padding: 15, borderRadius: 10 },
   incomeCard: { borderLeftWidth: 4, borderLeftColor: '#4caf50' },
@@ -276,6 +353,7 @@ const styles = StyleSheet.create({
   transactionAmount: { fontSize: 16, fontWeight: 'bold', marginRight: 10 },
   incomeAmount: { color: '#4caf50' },
   expenseAmount: { color: '#f44336' },
+  editIcon: { fontSize: 18, color: '#999', padding: 5, marginRight: 5 },
   deleteIcon: { fontSize: 18, color: '#999', padding: 5 },
   emptyContainer: { alignItems: 'center', marginTop: 50, paddingBottom: 50 },
   emptyIcon: { fontSize: 60, marginBottom: 20 },
@@ -296,7 +374,7 @@ const styles = StyleSheet.create({
   categoryOptionSelected: { backgroundColor: '#2e7d32' },
   categoryOptionText: { fontSize: 12, color: '#333' },
   categoryOptionTextSelected: { color: '#fff' },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16, color: '#212121', fontWeight: '500' },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   button: { flex: 1, padding: 14, borderRadius: 8, marginHorizontal: 5, alignItems: 'center' },
   cancelButton: { backgroundColor: '#999' },

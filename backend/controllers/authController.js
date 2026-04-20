@@ -113,4 +113,53 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe };
+const updateProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.name = req.body.name || user.name;
+    user.email = req.body.email || user.email;
+    user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;
+    if (req.body.profilePicture !== undefined) {
+      user.profilePicture = req.body.profilePicture;
+    }
+
+    const updatedUser = await user.save();
+    res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      profilePicture: updatedUser.profilePicture,
+    });
+  } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'Email already exists' });
+    res.status(500).json({ message: 'Server error during profile update' });
+  }
+};
+
+const updatePassword = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const isMatch = await user.matchPassword(req.body.currentPassword);
+    if (!isMatch) return res.status(401).json({ message: 'Current password is incorrect' });
+
+    if (!req.body.newPassword || req.body.newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    user.password = req.body.newPassword;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error during password update' });
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile, updatePassword };

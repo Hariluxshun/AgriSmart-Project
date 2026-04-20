@@ -35,6 +35,10 @@ const inventorySchema = new mongoose.Schema({
     enum: ['active', 'expired', 'write-off'],
     default: 'active'
   },
+  supplier: {
+    name: String,
+    contact: String
+  },
   createdAt: {
     type: Date,
     default: Date.now

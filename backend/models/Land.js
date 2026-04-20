@@ -14,6 +14,9 @@ const landSchema = new mongoose.Schema({
     lat: Number,
     lng: Number
   },
+  mapLink: {
+    type: String
+  },
   size: {
     value: Number,
     unit: { type: String, default: 'acres' }
@@ -24,6 +27,19 @@ const landSchema = new mongoose.Schema({
     potassium: Number,
     ph: Number
   },
+  soilType: {
+    type: String,
+    enum: ['clay', 'sandy', 'silty', 'peat', 'chalk', 'loam', 'other'],
+    default: 'other'
+  },
+  cropHistory: [{
+    season: String,
+    crop: String,
+    yield: String,
+    datePlanted: Date,
+    dateHarvested: Date,
+    notes: String
+  }],
   soilTestHistory: [{
     date: Date,
     nitrogen: Number,

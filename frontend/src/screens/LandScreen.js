@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { landService } from '../services/api';
 
@@ -22,6 +23,7 @@ export default function LandScreen() {
     location: '',
     size: { value: '', unit: 'acres' },
     soilDetails: { nitrogen: '', phosphorus: '', potassium: '', ph: '' },
+    mapLink: '',
   });
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function LandScreen() {
           potassium: parseFloat(formData.soilDetails.potassium) || 0,
           ph: parseFloat(formData.soilDetails.ph) || 7,
         },
+        mapLink: formData.mapLink,
       };
       await landService.create(data);
       Alert.alert('Success', 'Land added successfully');
@@ -76,6 +79,7 @@ export default function LandScreen() {
           potassium: parseFloat(formData.soilDetails.potassium) || 0,
           ph: parseFloat(formData.soilDetails.ph) || 7,
         },
+        mapLink: formData.mapLink,
       };
       await landService.update(editingItem._id, data);
       Alert.alert('Success', 'Land updated successfully');
@@ -111,6 +115,7 @@ export default function LandScreen() {
       location: '',
       size: { value: '', unit: 'acres' },
       soilDetails: { nitrogen: '', phosphorus: '', potassium: '', ph: '' },
+      mapLink: '',
     });
   };
 
@@ -125,8 +130,21 @@ export default function LandScreen() {
         potassium: item.soilDetails?.potassium?.toString() || '',
         ph: item.soilDetails?.ph?.toString() || '',
       },
+      mapLink: item.mapLink || '',
     });
     setModalVisible(true);
+  };
+
+  const openMap = (link) => {
+    if (!link) return;
+    let url = link;
+    // If it looks like coordinates, format as Google Maps search
+    if (/^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$/.test(link.trim())) {
+      url = `https://maps.google.com/?q=${link.trim()}`;
+    } else if (!link.startsWith('http://') && !link.startsWith('https://')) {
+      url = `https://${link}`;
+    }
+    Linking.openURL(url).catch(err => Alert.alert('Error', 'Could not open map link'));
   };
 
   const renderLand = ({ item }) => (
@@ -134,6 +152,11 @@ export default function LandScreen() {
       <View style={styles.cardHeader}>
         <Text style={styles.location}>{item.location}</Text>
         <View style={styles.actionButtons}>
+          {item.mapLink ? (
+            <TouchableOpacity onPress={() => openMap(item.mapLink)} style={styles.actionButton}>
+              <Text style={styles.actionText}>📍</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity onPress={() => openEditModal(item)} style={styles.actionButton}>
             <Text style={styles.actionText}>✏️</Text>
           </TouchableOpacity>
@@ -182,14 +205,21 @@ export default function LandScreen() {
           <ScrollView contentContainerStyle={styles.modalContent}>
             <Text style={styles.modalTitle}>{editingItem ? 'Edit Land' : 'Add New Land'}</Text>
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Location Name"
               value={formData.location}
               onChangeText={(text) => setFormData({ ...formData, location: text })}
             />
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
+              style={styles.input}
+              placeholder="Map Link or Coordinates (Lat,Lng)"
+              value={formData.mapLink}
+              onChangeText={(text) => setFormData({ ...formData, mapLink: text })}
+            />
+
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Size (acres)"
               keyboardType="numeric"
@@ -199,7 +229,7 @@ export default function LandScreen() {
 
             <Text style={styles.sectionLabel}>Soil Nutrients</Text>
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Nitrogen (N)"
               keyboardType="numeric"
@@ -207,7 +237,7 @@ export default function LandScreen() {
               onChangeText={(text) => setFormData({ ...formData, soilDetails: { ...formData.soilDetails, nitrogen: text } })}
             />
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Phosphorus (P)"
               keyboardType="numeric"
@@ -215,7 +245,7 @@ export default function LandScreen() {
               onChangeText={(text) => setFormData({ ...formData, soilDetails: { ...formData.soilDetails, phosphorus: text } })}
             />
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="Potassium (K)"
               keyboardType="numeric"
@@ -223,7 +253,7 @@ export default function LandScreen() {
               onChangeText={(text) => setFormData({ ...formData, soilDetails: { ...formData.soilDetails, potassium: text } })}
             />
 
-            <TextInput
+            <TextInput placeholderTextColor="#666"
               style={styles.input}
               placeholder="pH Level"
               keyboardType="numeric"

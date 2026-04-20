@@ -107,7 +107,7 @@ export default function RegisterScreen({ navigation }) {
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Join AgriSmart today</Text>
 
-        <TextInput
+        <TextInput placeholderTextColor="#666"
           style={styles.input}
           placeholder="Full Name"
           placeholderTextColor="#999"
@@ -116,7 +116,7 @@ export default function RegisterScreen({ navigation }) {
           autoCapitalize="words"
         />
 
-        <TextInput
+        <TextInput placeholderTextColor="#666"
           style={styles.input}
           placeholder="Email"
           placeholderTextColor="#999"
@@ -127,7 +127,7 @@ export default function RegisterScreen({ navigation }) {
           autoCorrect={false}
         />
 
-        <TextInput
+        <TextInput placeholderTextColor="#666"
           style={styles.input}
           placeholder="Password (min 6 characters)"
           placeholderTextColor="#999"
@@ -137,7 +137,7 @@ export default function RegisterScreen({ navigation }) {
           autoCapitalize="none"
         />
 
-        <TextInput
+        <TextInput placeholderTextColor="#666"
           style={styles.input}
           placeholder="Confirm Password"
           placeholderTextColor="#999"

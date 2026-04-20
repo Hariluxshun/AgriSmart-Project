@@ -3,6 +3,8 @@ const {
     createTask, 
     getTasks, 
     updateTaskStatus,
+    updateTask,
+    deleteTask,
     createEmployee,
     getEmployees
 } = require('../controllers/taskController');
@@ -17,6 +19,10 @@ router.use(protect);
 router.route('/tasks')
     .post(createTask)
     .get(getTasks);
+
+router.route('/tasks/:id')
+    .put(updateTask)
+    .delete(deleteTask);
 
 router.put('/tasks/:id/status', updateTaskStatus);
 

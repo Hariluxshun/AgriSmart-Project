@@ -73,9 +73,8 @@ const deleteAsset = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
     
-    asset.status = 'decommissioned';
-    await asset.save();
-    res.json({ message: 'Asset decommissioned' });
+    await Machinery.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Asset deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

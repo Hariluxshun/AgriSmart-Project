@@ -9,9 +9,11 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { financeService } from '../services/api';
 
 export default function DashboardScreen({ navigation }) {
   const [user, setUser] = useState(null);
+  const [financeSummary, setFinanceSummary] = useState({ income: 0, expense: 0, profit: 0 });
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -21,6 +23,16 @@ export default function DashboardScreen({ navigation }) {
   const loadUser = async () => {
     const userData = await AsyncStorage.getItem('user');
     if (userData) setUser(JSON.parse(userData));
+    fetchDashboardMetrics();
+  };
+
+  const fetchDashboardMetrics = async () => {
+     try {
+        const plRes = await financeService.getProfitLoss();
+        setFinanceSummary(plRes.data);
+     } catch (error) {
+        console.log("Failed to fetch dashboard metrics");
+     }
   };
 
   const onRefresh = async () => {
@@ -44,7 +56,7 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const modules = [
-    { name: 'Land Registry', screen: 'Lands', icon: '🌾', color: '#4caf50', description: 'Manage land plots' },
+    { name: 'Farm Profile', screen: 'Farm', icon: '🌾', color: '#4caf50', description: 'Farmer & Lands' },
     { name: 'Inventory', screen: 'Inventory', icon: '📦', color: '#2196f3', description: 'Track stock levels' },
     { name: 'Machinery', screen: 'Machinery', icon: '🚜', color: '#ff9800', description: 'Manage equipment' },
     { name: 'Tasks', screen: 'Tasks', icon: '✅', color: '#9c27b0', description: 'Assign and track tasks' },
@@ -69,12 +81,18 @@ export default function DashboardScreen({ navigation }) {
 
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>6</Text>
-          <Text style={styles.statLabel}>Modules</Text>
+          <Text style={[styles.statNumber, {color: '#4caf50'}]}>${(financeSummary.income || 0).toFixed(2)}</Text>
+          <Text style={styles.statLabel}>Revenue</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>Active</Text>
-          <Text style={styles.statLabel}>Farm</Text>
+          <Text style={[styles.statNumber, {color: '#f44336'}]}>${(financeSummary.expense || 0).toFixed(2)}</Text>
+          <Text style={styles.statLabel}>Expenses</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={[styles.statNumber, {color: (financeSummary.profit || 0) >= 0 ? '#4caf50' : '#f44336'}]}>
+             ${(financeSummary.profit || 0).toFixed(2)}
+          </Text>
+          <Text style={styles.statLabel}>Profit / Loss</Text>
         </View>
       </View>
 
@@ -138,9 +156,10 @@ const styles = StyleSheet.create({
   statCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 20,
+    padding: 15,
     alignItems: 'center',
-    width: '48%',
+    width: '32%',
+
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

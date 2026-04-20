@@ -51,7 +51,7 @@ const updateLand = async (req, res) => {
   }
 };
 
-// Delete land (soft delete - mark as sold)
+// Delete land (hard delete from DB)
 const deleteLand = async (req, res) => {
   try {
     const land = await Land.findById(req.params.id);
@@ -60,9 +60,8 @@ const deleteLand = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
     
-    land.status = 'sold';
-    await land.save();
-    res.json({ message: 'Land marked as sold' });
+    await Land.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Land deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -20,6 +20,14 @@ const UserSchema = new mongoose.Schema(
       trim: true,
       match: [emailRegex, 'Please provide a valid email address'],
     },
+    phone: {
+      type: String,
+      trim: true,
+    },
+    profilePicture: {
+      type: String,
+      default: '',
+    },
     password: {
       type: String,
       required: [true, 'Please add a password'],

@@ -47,7 +47,7 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.title}>AgriSmart</Text>
         <Text style={styles.subtitle}>Farm Management System</Text>
 
-        <TextInput
+        <TextInput placeholderTextColor="#666"
           style={globalStyles.input}
           placeholder="Email"
           placeholderTextColor={colors.textHint}
@@ -57,7 +57,7 @@ export default function LoginScreen({ navigation }) {
           autoCapitalize="none"
         />
 
-        <TextInput
+        <TextInput placeholderTextColor="#666"
           style={[globalStyles.input, styles.lastInput]}
           placeholder="Password"
           placeholderTextColor={colors.textHint}

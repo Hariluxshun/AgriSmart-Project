@@ -5,7 +5,8 @@ const {
     getLabor, 
     markAttendance,
     updateLabor, 
-    deleteLabor 
+    deleteLabor,
+    payLabor
 } = require('../controllers/laborController');
 const { protect } = require('../middleware/auth');
 
@@ -24,5 +25,6 @@ router.route('/:id')
     .delete(deleteLabor);
 
 router.post('/:id/attendance', markAttendance);
+router.post('/:id/pay', payLabor);
 
 module.exports = router;

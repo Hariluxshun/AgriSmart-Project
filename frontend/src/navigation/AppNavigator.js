@@ -6,7 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import DashboardScreen from '../screens/DashboardScreen';
-import LandScreen from '../screens/LandScreen';
+import FarmProfileScreen from '../screens/FarmProfileScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import MachineryScreen from '../screens/MachineryScreen';
 import TaskScreen from '../screens/TaskScreen';
@@ -26,7 +26,7 @@ function MainTabs() {
       }}
     >
       <Tab.Screen name="Home" component={DashboardScreen} />
-      <Tab.Screen name="Lands" component={LandScreen} />
+      <Tab.Screen name="Farm" component={FarmProfileScreen} />
       <Tab.Screen name="Inventory" component={InventoryScreen} />
       <Tab.Screen name="Machinery" component={MachineryScreen} />
       <Tab.Screen name="Tasks" component={TaskScreen} />

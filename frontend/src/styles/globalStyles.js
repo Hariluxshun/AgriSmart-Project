@@ -74,7 +74,8 @@ export const globalStyles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: '#212121',
+    fontWeight: '500',
   },
   inputFocused: {
     borderColor: colors.primary,

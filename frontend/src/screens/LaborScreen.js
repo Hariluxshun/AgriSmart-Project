@@ -17,12 +17,19 @@ export default function LaborScreen() {
   const [laborers, setLaborers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [payModalVisible, setPayModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  
   const [formData, setFormData] = useState({
     name: '',
     contactNumber: '',
     role: 'field_worker',
     dailyRate: '',
+  });
+
+  const [paymentData, setPaymentData] = useState({
+    amount: '',
+    description: 'Cash Payment'
   });
 
   const roles = [
@@ -83,11 +90,27 @@ export default function LaborScreen() {
     }
   };
 
+  const submitPayment = async () => {
+    if (!paymentData.amount) return Alert.alert('Error', 'Enter amount to pay');
+    try {
+      await laborService.pay(editingItem._id, {
+         amount: parseFloat(paymentData.amount),
+         description: paymentData.description
+      });
+      Alert.alert('Payment Logged', 'Finance module updated successfully.');
+      setPayModalVisible(false);
+      setPaymentData({ amount: '', description: 'Cash Payment' });
+      fetchLaborers();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to process payment');
+    }
+  };
+
   const markAttendance = async (id, status) => {
     const today = new Date().toISOString().split('T')[0];
     try {
       await laborService.markAttendance(id, { date: today, status });
-      Alert.alert('Success', `Marked as ${status}`);
+      Alert.alert('Success', `Attendance marked: ${status.toUpperCase()}`);
       fetchLaborers();
     } catch (error) {
       Alert.alert('Error', 'Failed to mark attendance');
@@ -99,6 +122,7 @@ export default function LaborScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Archive',
+        style: 'destructive',
         onPress: async () => {
           try {
             await laborService.delete(id);
@@ -126,26 +150,45 @@ export default function LaborScreen() {
       name: item.name,
       contactNumber: item.contactNumber || '',
       role: item.role,
-      dailyRate: item.dailyRate?.toString(),
+      dailyRate: item.dailyRate.toString(),
     });
     setModalVisible(true);
   };
-
-  const getRoleLabel = (role) => {
-    const r = roles.find(r => r.value === role);
-    return r ? r.label : role;
+  
+  const openPayModal = (item) => {
+     setEditingItem(item);
+     setPaymentData({ amount: '', description: 'Cash Payment' });
+     setPayModalVisible(true);
   };
 
-  const renderLaborer = ({ item }) => {
-    const todayAttendance = item.attendance?.find(a => a.date === new Date().toISOString().split('T')[0]);
+  const getRoleLabel = (value) => {
+    const role = roles.find((r) => r.value === value);
+    return role ? role.label : value;
+  };
+
+  const renderItem = ({ item }) => {
+    // Determine today's current marked attendance
+    const todayStr = new Date().toDateString();
+    const todaysLog = item.attendance?.find(a => new Date(a.date).toDateString() === todayStr);
+
+    // Calculate Unpaid Wages
+    const totalEarned = item.attendance?.reduce((sum, a) => {
+       if (a.status === 'present') return sum + item.dailyRate;
+       if (a.status === 'half-day') return sum + (item.dailyRate / 2);
+       return sum;
+    }, 0) || 0;
+
+    const totalPaid = item.paymentHistory?.reduce((sum, p) => sum + p.amount, 0) || 0;
+    const unpaidBalance = totalEarned - totalPaid;
+
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View>
-            <Text style={styles.laborName}>{item.name}</Text>
-            <Text style={styles.laborRole}>{getRoleLabel(item.role)}</Text>
-            <Text style={styles.laborRate}>LKR {item.dailyRate}/day</Text>
-            {item.contactNumber && <Text style={styles.laborContact}>📞 {item.contactNumber}</Text>}
+            <Text style={styles.name}>{item.name}</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleText}>{getRoleLabel(item.role)}</Text>
+            </View>
           </View>
           <View style={styles.cardActions}>
             <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editButton}>
@@ -157,26 +200,59 @@ export default function LaborScreen() {
           </View>
         </View>
 
+        {item.contactNumber ? (
+          <Text style={styles.contact}>📱 {item.contactNumber}</Text>
+        ) : null}
+
+        <View style={styles.financeMetrics}>
+           <View style={styles.financeBox}>
+              <Text style={styles.rateText}>${item.dailyRate}</Text>
+              <Text style={styles.rateLabel}>Daily Rate</Text>
+           </View>
+           <View style={[styles.financeBox, unpaidBalance > 0 && {backgroundColor: '#ffebee'}]}>
+              <Text style={[styles.rateText, unpaidBalance > 0 && {color: '#d32f2f'}]}>${unpaidBalance.toFixed(2)}</Text>
+              <Text style={styles.rateLabel}>Unpaid Wages</Text>
+           </View>
+        </View>
+
+        <TouchableOpacity style={styles.payBtn} onPress={() => openPayModal(item)}>
+           <Text style={styles.payBtnText}>💵 Submit Payment</Text>
+        </TouchableOpacity>
+
         <View style={styles.attendanceSection}>
-          <Text style={styles.attendanceLabel}>Today's Attendance:</Text>
+          <Text style={styles.attendanceTitle}>Mark Today's Attendance</Text>
           <View style={styles.attendanceButtons}>
             <TouchableOpacity
-              style={[styles.attendanceButton, styles.presentButton, todayAttendance?.status === 'present' && styles.activeButton]}
+              style={[
+                styles.attendanceBtn,
+                styles.presentBtn,
+                todaysLog?.status === 'present' && styles.activeAttendanceBtn
+              ]}
               onPress={() => markAttendance(item._id, 'present')}
             >
-              <Text style={styles.attendanceButtonText}>✓ Present</Text>
+              <Text style={styles.attendanceBtnText}>Present</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity
-              style={[styles.attendanceButton, styles.absentButton, todayAttendance?.status === 'absent' && styles.activeButton]}
-              onPress={() => markAttendance(item._id, 'absent')}
-            >
-              <Text style={styles.attendanceButtonText}>✗ Absent</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.attendanceButton, styles.halfDayButton, todayAttendance?.status === 'half-day' && styles.activeButton]}
+              style={[
+                styles.attendanceBtn,
+                styles.halfDayBtn,
+                todaysLog?.status === 'half-day' && styles.activeAttendanceBtn
+              ]}
               onPress={() => markAttendance(item._id, 'half-day')}
             >
-              <Text style={styles.attendanceButtonText}>½ Half Day</Text>
+              <Text style={styles.attendanceBtnText}>Half-Day</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.attendanceBtn,
+                styles.absentBtn,
+                todaysLog?.status === 'absent' && styles.activeAttendanceBtn
+              ]}
+              onPress={() => markAttendance(item._id, 'absent')}
+            >
+              <Text style={styles.attendanceBtnText}>Absent</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -197,62 +273,50 @@ export default function LaborScreen() {
       <FlatList
         data={laborers}
         keyExtractor={(item) => item._id}
-        renderItem={renderLaborer}
+        renderItem={renderItem}
+        contentContainerStyle={{ paddingBottom: 80 }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyText}>No laborers added</Text>
-            <Text style={styles.emptySubtext}>Tap + to add workers</Text>
+            <Text style={styles.emptyIcon}>👷‍♂️</Text>
+            <Text style={styles.emptyText}>No laborers found</Text>
+            <Text style={styles.emptySubtext}>Tap + to add workforce</Text>
           </View>
         }
       />
 
-      <TouchableOpacity style={styles.fab} onPress={() => { setEditingItem(null); resetForm(); setModalVisible(true); }}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          setEditingItem(null);
+          resetForm();
+          setModalVisible(true);
+        }}
+      >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
+      {/* CREATE / EDIT Modal */}
       <Modal animationType="slide" transparent visible={modalVisible}>
         <View style={styles.modalContainer}>
           <ScrollView contentContainerStyle={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editingItem ? 'Edit Laborer' : 'Add Laborer'}</Text>
+            <Text style={styles.modalTitle}>
+              {editingItem ? 'Edit Laborer' : 'Add Laborer'}
+            </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Full Name *"
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="Contact Number"
-              keyboardType="phone-pad"
-              value={formData.contactNumber}
-              onChangeText={(text) => setFormData({ ...formData, contactNumber: text })}
-            />
+            <TextInput placeholderTextColor="#666" style={styles.input} placeholder="Worker Name" value={formData.name} onChangeText={(text) => setFormData({ ...formData, name: text })} />
+            <TextInput placeholderTextColor="#666" style={styles.input} placeholder="Contact Number (Optional)" keyboardType="phone-pad" value={formData.contactNumber} onChangeText={(text) => setFormData({ ...formData, contactNumber: text })} />
 
             <Text style={styles.label}>Role</Text>
             <View style={styles.roleContainer}>
               {roles.map((role) => (
-                <TouchableOpacity
-                  key={role.value}
-                  style={[styles.roleOption, formData.role === role.value && styles.roleOptionSelected]}
-                  onPress={() => setFormData({ ...formData, role: role.value })}
-                >
-                  <Text style={[styles.roleOptionText, formData.role === role.value && styles.roleOptionTextSelected]}>
-                    {role.label}
-                  </Text>
+                <TouchableOpacity key={role.value} style={[styles.roleOption, formData.role === role.value && styles.roleOptionSelected]} onPress={() => setFormData({ ...formData, role: role.value })}>
+                  <Text style={[styles.roleOptionText, formData.role === role.value && styles.roleOptionTextSelected]}>{role.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Daily Rate (LKR) *"
-              keyboardType="numeric"
-              value={formData.dailyRate}
-              onChangeText={(text) => setFormData({ ...formData, dailyRate: text })}
-            />
+            <Text style={styles.label}>Daily Wage / Rate</Text>
+            <TextInput placeholderTextColor="#666" style={styles.input} placeholder="e.g., 50.00" keyboardType="numeric" value={formData.dailyRate} onChangeText={(text) => setFormData({ ...formData, dailyRate: text })} />
 
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => { setModalVisible(false); setEditingItem(null); resetForm(); }}>
@@ -265,6 +329,31 @@ export default function LaborScreen() {
           </ScrollView>
         </View>
       </Modal>
+      
+      {/* PAY Modal */}
+      <Modal animationType="slide" transparent visible={payModalVisible}>
+        <View style={styles.modalContainer}>
+           <View style={styles.payModalContent}>
+              <Text style={styles.modalTitle}>Submit Pay for {editingItem?.name}</Text>
+              
+              <Text style={styles.label}>Tending Amount</Text>
+              <TextInput placeholderTextColor="#666" style={styles.input} keyboardType="numeric" placeholder="$ Amount" value={paymentData.amount} onChangeText={(text) => setPaymentData({...paymentData, amount: text})} />
+              
+              <Text style={styles.label}>Payment Note / Memo</Text>
+              <TextInput placeholderTextColor="#666" style={styles.input} placeholder="e.g. Cash, Weekly Clearance" value={paymentData.description} onChangeText={(text) => setPaymentData({...paymentData, description: text})} />
+
+              <View style={styles.modalButtons}>
+                 <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setPayModalVisible(false)}>
+                    <Text style={styles.buttonText}>Cancel</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={submitPayment}>
+                    <Text style={styles.buttonText}>Confirm Payment</Text>
+                 </TouchableOpacity>
+              </View>
+           </View>
+        </View>
+      </Modal>
+      
     </View>
   );
 }
@@ -274,23 +363,33 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   card: { backgroundColor: '#fff', margin: 10, padding: 15, borderRadius: 12, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  laborName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  laborRole: { fontSize: 14, color: '#795548', marginTop: 4 },
-  laborRate: { fontSize: 14, fontWeight: 'bold', color: '#2e7d32', marginTop: 4 },
-  laborContact: { fontSize: 12, color: '#666', marginTop: 4 },
+  name: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  roleBadge: { backgroundColor: '#e8f5e9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginTop: 5, alignSelf: 'flex-start' },
+  roleText: { color: '#2e7d32', fontSize: 12, fontWeight: 'bold' },
   cardActions: { flexDirection: 'row' },
   editButton: { padding: 5, marginRight: 10 },
   deleteButton: { padding: 5 },
   actionText: { fontSize: 18 },
-  attendanceSection: { marginTop: 15, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#e0e0e0' },
-  attendanceLabel: { fontSize: 12, color: '#666', marginBottom: 8 },
-  attendanceButtons: { flexDirection: 'row', gap: 10 },
-  attendanceButton: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8, marginRight: 10 },
-  presentButton: { backgroundColor: '#e0e0e0' },
-  absentButton: { backgroundColor: '#e0e0e0' },
-  halfDayButton: { backgroundColor: '#e0e0e0' },
-  activeButton: { opacity: 1 },
-  attendanceButtonText: { fontSize: 12, fontWeight: 'bold', color: '#333' },
+  contact: { fontSize: 14, color: '#666', marginTop: 8 },
+
+  financeMetrics: { flexDirection: 'row', marginTop: 15, justifyContent: 'space-between' },
+  financeBox: { flex: 1, alignItems: 'center', padding: 10, backgroundColor: '#f5f5f5', borderRadius: 8, marginHorizontal: 2 },
+  rateText: { fontSize: 18, fontWeight: 'bold', color: '#2e7d32' },
+  rateLabel: { fontSize: 12, color: '#666' },
+  
+  payBtn: { backgroundColor: '#2e7d32', padding: 12, borderRadius: 8, marginTop: 10, alignItems: 'center' },
+  payBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+
+  attendanceSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#eee' },
+  attendanceTitle: { fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 10, textAlign: 'center' },
+  attendanceButtons: { flexDirection: 'row', justifyContent: 'space-between' },
+  attendanceBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', marginHorizontal: 3, borderWidth: 1 },
+  presentBtn: { borderColor: '#4caf50', backgroundColor: '#e8f5e9' },
+  halfDayBtn: { borderColor: '#ff9800', backgroundColor: '#fff3e0' },
+  absentBtn: { borderColor: '#f44336', backgroundColor: '#ffebee' },
+  activeAttendanceBtn: { borderWidth: 3, elevation: 2 },
+  attendanceBtnText: { fontSize: 12, fontWeight: 'bold', color: '#333' },
+
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyIcon: { fontSize: 60, marginBottom: 20 },
   emptyText: { fontSize: 18, color: '#999' },
@@ -298,9 +397,10 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#2e7d32', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
   fabText: { fontSize: 32, color: '#fff' },
   modalContainer: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { backgroundColor: '#fff', margin: 20, padding: 20, borderRadius: 15 },
+  modalContent: { backgroundColor: '#fff', margin: 20, padding: 20, borderRadius: 15, maxHeight: '90%' },
+  payModalContent: { backgroundColor: '#fff', margin: 20, padding: 20, borderRadius: 15 },
   modalTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#2e7d32' },
-  input: { borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16, color: '#212121', fontWeight: '500' },
   label: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 8, marginTop: 8 },
   roleContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
   roleOption: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#e0e0e0', margin: 4 },

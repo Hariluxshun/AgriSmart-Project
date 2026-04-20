@@ -24,11 +24,26 @@ const taskSchema = new mongoose.Schema({
     enum: ['low', 'medium', 'high', 'urgent'],
     default: 'medium'
   },
+  startDate: Date,
   status: {
     type: String,
-    enum: ['pending', 'in-progress', 'completed', 'cancelled'],
+    enum: ['pending', 'in-progress', 'completed', 'delayed', 'cancelled'],
     default: 'pending'
   },
+  notes: String,
+  progress: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  materialsUsed: [{
+    inventoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Inventory'
+    },
+    quantity: Number
+  }],
   dueDate: Date,
   completedAt: Date,
   createdAt: {

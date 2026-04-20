@@ -67,9 +67,8 @@ const deleteItem = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
     
-    item.status = 'write-off';
-    await item.save();
-    res.json({ message: 'Item written off' });
+    await Inventory.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Item deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
