@@ -539,43 +539,44 @@ export default function TaskScreen() {
 
             <Text style={styles.label}>Date / Deadline</Text>
             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-               <TouchableOpacity style={[styles.dateInput, {flex: 1, marginRight: 5}]} onPress={() => setPickerMode('start')}>
-                  <Text style={taskForm.startDate ? styles.dateText : styles.datePlaceholder}>
-                    {taskForm.startDate ? formatDate(taskForm.startDate) : 'Select Start'}
-                  </Text>
-               </TouchableOpacity>
-               <TouchableOpacity style={[styles.dateInput, {flex: 1, marginLeft: 5}]} onPress={() => setPickerMode('due')}>
-                  <Text style={taskForm.dueDate ? styles.dateText : styles.datePlaceholder}>
-                    {taskForm.dueDate ? formatDate(taskForm.dueDate) : 'Deadline (Opt)'}
-                  </Text>
-               </TouchableOpacity>
+                <TouchableOpacity style={[styles.dateInput, {flex: 1, marginRight: 5, flexDirection: 'row', alignItems: 'center'}]} onPress={() => setPickerMode('start')}>
+                   <Text style={{marginRight: 8, fontSize: 16}}>📅</Text>
+                   <Text style={taskForm.startDate ? styles.dateText : styles.datePlaceholder}>
+                     {taskForm.startDate ? formatDate(taskForm.startDate) : 'Start Date'}
+                   </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.dateInput, {flex: 1, marginLeft: 5, flexDirection: 'row', alignItems: 'center'}]} onPress={() => setPickerMode('due')}>
+                   <Text style={{marginRight: 8, fontSize: 16}}>🏁</Text>
+                   <Text style={taskForm.dueDate ? styles.dateText : styles.datePlaceholder}>
+                     {taskForm.dueDate ? formatDate(taskForm.dueDate) : 'Deadline'}
+                   </Text>
+                </TouchableOpacity>
             </View>
             
             {pickerMode && (
-              <View style={{ backgroundColor: '#fff', padding: 10, borderRadius: 10, marginVertical: 10, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 5 }}>
-                   <Text style={{ fontWeight: 'bold', color: '#2e7d32' }}>{pickerMode === 'start' ? 'Select Start Date' : 'Select Deadline'}</Text>
-                   <TouchableOpacity onPress={() => setPickerMode(null)}>
-                      <Text style={{ color: '#2196f3', fontWeight: 'bold', padding: 5 }}>Done</Text>
-                   </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={taskForm[pickerMode === 'start' ? 'startDate' : 'dueDate'] || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-                  itemStyle={{ color: '#000' }}
-                  textColor="#000"
-                  onChange={(e, val) => {
-                    if (Platform.OS === 'android') {
-                      setPickerMode(null);
-                    }
-                    if (val) {
-                      if (pickerMode === 'start') setTaskForm(prev => ({...prev, startDate: val}));
-                      if (pickerMode === 'due') setTaskForm(prev => ({...prev, dueDate: val}));
-                    }
-                  }}
-                />
-              </View>
+               <View style={{ backgroundColor: '#f1f8e9', padding: 12, borderRadius: 12, marginVertical: 10, borderWidth: 1, borderColor: '#c8e6c9', elevation: 4 }}>
+                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#a5d6a7', paddingBottom: 8 }}>
+                    <Text style={{ fontWeight: 'bold', color: '#1b5e20', fontSize: 15 }}>{pickerMode === 'start' ? '📅 Set Start Date' : '🏁 Set Deadline'}</Text>
+                    <TouchableOpacity onPress={() => setPickerMode(null)} style={{ backgroundColor: '#2e7d32', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                       <Text style={{ color: '#fff', fontWeight: 'bold' }}>Done</Text>
+                    </TouchableOpacity>
+                 </View>
+                 <DateTimePicker
+                   value={taskForm[pickerMode === 'start' ? 'startDate' : 'dueDate'] || new Date()}
+                   mode="date"
+                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                   style={{ backgroundColor: 'transparent' }}
+                   onChange={(e, val) => {
+                     if (Platform.OS === 'android') {
+                       setPickerMode(null);
+                     }
+                     if (val) {
+                       if (pickerMode === 'start') setTaskForm(prev => ({...prev, startDate: val}));
+                       if (pickerMode === 'due') setTaskForm(prev => ({...prev, dueDate: val}));
+                     }
+                   }}
+                 />
+               </View>
             )}
 
             <Text style={styles.label}>Priority</Text>
