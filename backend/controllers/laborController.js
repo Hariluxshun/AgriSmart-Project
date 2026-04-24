@@ -13,7 +13,7 @@ const createLabor = async (req, res) => {
 
 const getLaborers = async (req, res) => {
   try {
-    const laborers = await Labor.find({ farmer: req.user.id });
+    const laborers = await Labor.find({ farmer: req.user.id }).populate('landId', 'location');
     
     // Separate active and inactive
     const active = laborers.filter(l => l.status === 'active');
@@ -125,6 +125,7 @@ const payLabor = async (req, res) => {
        category: 'labor',
        amount: amount,
        description: `Labor Wage - ${labor.name} - ${description || 'Cash Payment'}`,
+       landId: labor.landId // Link to laborer's assigned land
     });
 
     // Push into labor records

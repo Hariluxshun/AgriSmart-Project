@@ -31,6 +31,10 @@ const machinerySchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  landId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Land'
   }
 });
 

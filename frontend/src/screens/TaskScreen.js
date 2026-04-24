@@ -78,7 +78,6 @@ export default function TaskScreen() {
 
       setTasks(tasksRes.data || []);
       setInventory(invRes.data || []);
-      setLands(landsRes.data || []);
 
       let laborList = [];
       if (Array.isArray(laborsRes.data)) {
@@ -91,6 +90,16 @@ export default function TaskScreen() {
         laborList = laborsRes.data.data;
       }
       setLabors(laborList);
+
+      let landList = [];
+      if (Array.isArray(landsRes.data)) {
+        landList = landsRes.data;
+      } else if (Array.isArray(landsRes.data?.lands)) {
+        landList = landsRes.data.lands;
+      } else if (Array.isArray(landsRes.data?.data)) {
+        landList = landsRes.data.data;
+      }
+      setLands(landList);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch tasks dependencies');
     } finally {
@@ -106,7 +115,7 @@ export default function TaskScreen() {
       landId: '',
       priority: 'medium',
       status: 'pending',
-      startDate: null,
+      startDate: new Date(),
       dueDate: null,
       materialsUsed: [],
       progress: 0,
@@ -119,6 +128,10 @@ export default function TaskScreen() {
     if (!trimmedTitle) return Alert.alert('Validation Error', 'Please enter task title');
     if (!taskForm.assignedTo) return Alert.alert('Validation Error', 'Please select a worker');
     if (!taskForm.startDate) return Alert.alert('Validation Error', 'Please select a start date');
+    
+    if (taskForm.dueDate && taskForm.startDate && taskForm.dueDate < taskForm.startDate) {
+      return Alert.alert('Validation Error', 'Finishing date must be equal to or greater than starting date');
+    }
 
     const payload = {
       title: trimmedTitle,
@@ -148,6 +161,10 @@ export default function TaskScreen() {
   const updateTask = async () => {
     const trimmedTitle = taskForm.title.trim();
     if (!trimmedTitle) return Alert.alert('Validation Error', 'Please enter task title');
+
+    if (taskForm.dueDate && taskForm.startDate && taskForm.dueDate < taskForm.startDate) {
+      return Alert.alert('Validation Error', 'Finishing date must be equal to or greater than starting date');
+    }
 
     const payload = {
       title: trimmedTitle,
@@ -458,7 +475,12 @@ export default function TaskScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
              <Text style={styles.modalTitle}>{editingItem ? 'Edit Task' : 'Create New Task'}</Text>
-             <TouchableOpacity onPress={() => { setModalVisible(false); resetTaskForm(); }}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
+             <TouchableOpacity 
+               onPress={() => { setModalVisible(false); resetTaskForm(); }}
+               style={{ padding: 10, marginRight: -10 }}
+             >
+               <Text style={styles.closeBtn}>✕</Text>
+             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
 
@@ -484,7 +506,7 @@ export default function TaskScreen() {
                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.employeeContainer}>
                      {lands.map((land) => (
                        <TouchableOpacity key={land._id} style={[styles.employeeOption, taskForm.landId === land._id && styles.employeeOptionSelected]} onPress={() => setTaskForm({ ...taskForm, landId: land._id })}>
-                         <Text style={[styles.employeeName, taskForm.landId === land._id && styles.employeeNameSelected]}>{land.name}</Text>
+                         <Text style={[styles.employeeName, taskForm.landId === land._id && styles.employeeNameSelected]}>{land.location || land.name}</Text>
                        </TouchableOpacity>
                      ))}
                    </ScrollView>
@@ -530,21 +552,24 @@ export default function TaskScreen() {
             </View>
             
             {pickerMode && (
-              <View>
-                {Platform.OS === 'ios' && (
-                  <TouchableOpacity style={{ alignSelf: 'flex-end', marginBottom: 5 }} onPress={() => setPickerMode(null)}>
-                     <Text style={{ color: '#2196f3', fontWeight: 'bold' }}>Done</Text>
-                  </TouchableOpacity>
-                )}
+              <View style={{ backgroundColor: '#fff', padding: 10, borderRadius: 10, marginVertical: 10, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 5 }}>
+                   <Text style={{ fontWeight: 'bold', color: '#2e7d32' }}>{pickerMode === 'start' ? 'Select Start Date' : 'Select Deadline'}</Text>
+                   <TouchableOpacity onPress={() => setPickerMode(null)}>
+                      <Text style={{ color: '#2196f3', fontWeight: 'bold', padding: 5 }}>Done</Text>
+                   </TouchableOpacity>
+                </View>
                 <DateTimePicker
                   value={taskForm[pickerMode === 'start' ? 'startDate' : 'dueDate'] || new Date()}
                   mode="date"
-                  display="default"
+                  display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
+                  itemStyle={{ color: '#000' }}
+                  textColor="#000"
                   onChange={(e, val) => {
                     if (Platform.OS === 'android') {
                       setPickerMode(null);
                     }
-                    if (e.type === 'set' && val) {
+                    if (val) {
                       if (pickerMode === 'start') setTaskForm(prev => ({...prev, startDate: val}));
                       if (pickerMode === 'due') setTaskForm(prev => ({...prev, dueDate: val}));
                     }
@@ -640,7 +665,7 @@ const styles = StyleSheet.create({
   metaRowContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 5 },
   metaBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 10, marginBottom: 5 },
   metaIcon: { fontSize: 12, marginRight: 4 },
-  taskMeta: { fontSize: 12, color: '#555', fontWeight: '500' },
+  taskMeta: { fontSize: 12, color: '#555', fontWeight: 'bold' },
   
   notesBox: { backgroundColor: '#fff9c4', padding: 10, borderRadius: 8, marginTop: 5, marginBottom: 5, borderLeftWidth: 3, borderLeftColor: '#fbc02d' },
   notesTitle: { fontSize: 12, fontWeight: 'bold', color: '#f57f17', marginBottom: 3 },
@@ -666,7 +691,7 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', bottom: 20, right: 20, backgroundColor: '#2e7d32', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
   fabText: { fontSize: 32, color: '#fff' },
   
-  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)', paddingTop: Platform.OS === 'ios' ? 60 : 30 },
   modalHeader: { backgroundColor: '#fff', padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#eee' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#2e7d32' },
   closeBtn: { fontSize: 24, color: '#999', fontWeight: 'bold' },

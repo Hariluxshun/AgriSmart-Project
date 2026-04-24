@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { laborService } from '../services/api';
+import { laborService, landService } from '../services/api';
 
 export default function LaborScreen() {
   const [laborers, setLaborers] = useState([]);
@@ -19,12 +19,14 @@ export default function LaborScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [payModalVisible, setPayModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  
+  const [lands, setLands] = useState([]);
+
   const [formData, setFormData] = useState({
     name: '',
     contactNumber: '',
     role: 'field_worker',
     dailyRate: '',
+    landId: '',
   });
 
   const [paymentData, setPaymentData] = useState({
@@ -41,15 +43,20 @@ export default function LaborScreen() {
   ];
 
   useEffect(() => {
-    fetchLaborers();
+    fetchData();
   }, []);
 
-  const fetchLaborers = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const response = await laborService.getAll();
-      setLaborers(response.data.active || []);
+      const [laborRes, landRes] = await Promise.all([
+        laborService.getAll(),
+        landService.getAll()
+      ]);
+      setLaborers(laborRes.data.active || []);
+      setLands(landRes.data || []);
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch laborers');
+      Alert.alert('Error', 'Failed to fetch laborers or lands');
     } finally {
       setLoading(false);
     }
@@ -68,7 +75,7 @@ export default function LaborScreen() {
       Alert.alert('Success', 'Laborer added successfully');
       setModalVisible(false);
       resetForm();
-      fetchLaborers();
+      fetchData();
     } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to create laborer');
     }
@@ -84,7 +91,7 @@ export default function LaborScreen() {
       setModalVisible(false);
       setEditingItem(null);
       resetForm();
-      fetchLaborers();
+      fetchData();
     } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to update laborer');
     }
@@ -94,13 +101,13 @@ export default function LaborScreen() {
     if (!paymentData.amount) return Alert.alert('Error', 'Enter amount to pay');
     try {
       await laborService.pay(editingItem._id, {
-         amount: parseFloat(paymentData.amount),
-         description: paymentData.description
+        amount: parseFloat(paymentData.amount),
+        description: paymentData.description
       });
       Alert.alert('Payment Logged', 'Finance module updated successfully.');
       setPayModalVisible(false);
       setPaymentData({ amount: '', description: 'Cash Payment' });
-      fetchLaborers();
+      fetchData();
     } catch (error) {
       Alert.alert('Error', 'Failed to process payment');
     }
@@ -111,7 +118,7 @@ export default function LaborScreen() {
     try {
       await laborService.markAttendance(id, { date: today, status });
       Alert.alert('Success', `Attendance marked: ${status.toUpperCase()}`);
-      fetchLaborers();
+      fetchData();
     } catch (error) {
       Alert.alert('Error', 'Failed to mark attendance');
     }
@@ -126,7 +133,7 @@ export default function LaborScreen() {
         onPress: async () => {
           try {
             await laborService.delete(id);
-            fetchLaborers();
+            fetchData();
           } catch (error) {
             Alert.alert('Error', 'Failed to archive laborer');
           }
@@ -141,6 +148,7 @@ export default function LaborScreen() {
       contactNumber: '',
       role: 'field_worker',
       dailyRate: '',
+      landId: '',
     });
   };
 
@@ -151,14 +159,15 @@ export default function LaborScreen() {
       contactNumber: item.contactNumber || '',
       role: item.role,
       dailyRate: item.dailyRate.toString(),
+      landId: item.landId?._id || item.landId || '',
     });
     setModalVisible(true);
   };
-  
+
   const openPayModal = (item) => {
-     setEditingItem(item);
-     setPaymentData({ amount: '', description: 'Cash Payment' });
-     setPayModalVisible(true);
+    setEditingItem(item);
+    setPaymentData({ amount: '', description: 'Cash Payment' });
+    setPayModalVisible(true);
   };
 
   const getRoleLabel = (value) => {
@@ -173,9 +182,9 @@ export default function LaborScreen() {
 
     // Calculate Unpaid Wages
     const totalEarned = item.attendance?.reduce((sum, a) => {
-       if (a.status === 'present') return sum + item.dailyRate;
-       if (a.status === 'half-day') return sum + (item.dailyRate / 2);
-       return sum;
+      if (a.status === 'present') return sum + item.dailyRate;
+      if (a.status === 'half-day') return sum + (item.dailyRate / 2);
+      return sum;
     }, 0) || 0;
 
     const totalPaid = item.paymentHistory?.reduce((sum, p) => sum + p.amount, 0) || 0;
@@ -189,6 +198,11 @@ export default function LaborScreen() {
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>{getRoleLabel(item.role)}</Text>
             </View>
+            {item.landId && (
+              <View style={[styles.roleBadge, { backgroundColor: '#e3f2fd', marginLeft: 5 }]}>
+                <Text style={[styles.roleText, { color: '#1976d2' }]}>📍 {item.landId?.location || 'Assigned Land'}</Text>
+              </View>
+            )}
           </View>
           <View style={styles.cardActions}>
             <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editButton}>
@@ -205,18 +219,18 @@ export default function LaborScreen() {
         ) : null}
 
         <View style={styles.financeMetrics}>
-           <View style={styles.financeBox}>
-              <Text style={styles.rateText}>${item.dailyRate}</Text>
-              <Text style={styles.rateLabel}>Daily Rate</Text>
-           </View>
-           <View style={[styles.financeBox, unpaidBalance > 0 && {backgroundColor: '#ffebee'}]}>
-              <Text style={[styles.rateText, unpaidBalance > 0 && {color: '#d32f2f'}]}>${unpaidBalance.toFixed(2)}</Text>
-              <Text style={styles.rateLabel}>Unpaid Wages</Text>
-           </View>
+          <View style={styles.financeBox}>
+            <Text style={styles.rateText}>LKR {item.dailyRate}</Text>
+            <Text style={styles.rateLabel}>Daily Rate</Text>
+          </View>
+          <View style={[styles.financeBox, unpaidBalance > 0 && { backgroundColor: '#ffebee' }]}>
+            <Text style={[styles.rateText, unpaidBalance > 0 && { color: '#d32f2f' }]}>LKR {unpaidBalance.toFixed(2)}</Text>
+            <Text style={styles.rateLabel}>Unpaid Wages</Text>
+          </View>
         </View>
 
         <TouchableOpacity style={styles.payBtn} onPress={() => openPayModal(item)}>
-           <Text style={styles.payBtnText}>💵 Submit Payment</Text>
+          <Text style={styles.payBtnText}>💵 Submit Payment</Text>
         </TouchableOpacity>
 
         <View style={styles.attendanceSection}>
@@ -232,7 +246,7 @@ export default function LaborScreen() {
             >
               <Text style={styles.attendanceBtnText}>Present</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[
                 styles.attendanceBtn,
@@ -316,7 +330,20 @@ export default function LaborScreen() {
             </View>
 
             <Text style={styles.label}>Daily Wage / Rate</Text>
-            <TextInput placeholderTextColor="#666" style={styles.input} placeholder="e.g., 50.00" keyboardType="numeric" value={formData.dailyRate} onChangeText={(text) => setFormData({ ...formData, dailyRate: text })} />
+            <TextInput placeholderTextColor="#666" style={styles.input} placeholder="Daily Rate (LKR)" keyboardType="numeric" value={formData.dailyRate} onChangeText={(text) => setFormData({ ...formData, dailyRate: text })} />
+
+            <Text style={styles.label}>Assigned Land</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.landPillsContainer}>
+              {lands.map((land) => (
+                <TouchableOpacity
+                  key={land._id}
+                  style={[styles.landPill, formData.landId === land._id && styles.landPillSelected]}
+                  onPress={() => setFormData({ ...formData, landId: land._id })}
+                >
+                  <Text style={[styles.landPillText, formData.landId === land._id && styles.landPillTextSelected]}>{land.location}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => { setModalVisible(false); setEditingItem(null); resetForm(); }}>
@@ -329,31 +356,31 @@ export default function LaborScreen() {
           </ScrollView>
         </View>
       </Modal>
-      
+
       {/* PAY Modal */}
       <Modal animationType="slide" transparent visible={payModalVisible}>
         <View style={styles.modalContainer}>
-           <View style={styles.payModalContent}>
-              <Text style={styles.modalTitle}>Submit Pay for {editingItem?.name}</Text>
-              
-              <Text style={styles.label}>Tending Amount</Text>
-              <TextInput placeholderTextColor="#666" style={styles.input} keyboardType="numeric" placeholder="$ Amount" value={paymentData.amount} onChangeText={(text) => setPaymentData({...paymentData, amount: text})} />
-              
-              <Text style={styles.label}>Payment Note / Memo</Text>
-              <TextInput placeholderTextColor="#666" style={styles.input} placeholder="e.g. Cash, Weekly Clearance" value={paymentData.description} onChangeText={(text) => setPaymentData({...paymentData, description: text})} />
+          <View style={styles.payModalContent}>
+            <Text style={styles.modalTitle}>Submit Pay for {editingItem?.name}</Text>
 
-              <View style={styles.modalButtons}>
-                 <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setPayModalVisible(false)}>
-                    <Text style={styles.buttonText}>Cancel</Text>
-                 </TouchableOpacity>
-                 <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={submitPayment}>
-                    <Text style={styles.buttonText}>Confirm Payment</Text>
-                 </TouchableOpacity>
-              </View>
-           </View>
+            <Text style={styles.label}>Tending Amount</Text>
+            <TextInput placeholderTextColor="#666" style={styles.input} keyboardType="numeric" placeholder="Amount (LKR)" value={paymentData.amount} onChangeText={(text) => setPaymentData({ ...paymentData, amount: text })} />
+
+            <Text style={styles.label}>Payment Note / Memo</Text>
+            <TextInput placeholderTextColor="#666" style={styles.input} placeholder="e.g. Cash, Weekly Clearance" value={paymentData.description} onChangeText={(text) => setPaymentData({ ...paymentData, description: text })} />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setPayModalVisible(false)}>
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={submitPayment}>
+                <Text style={styles.buttonText}>Confirm Payment</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
-      
+
     </View>
   );
 }
@@ -376,7 +403,7 @@ const styles = StyleSheet.create({
   financeBox: { flex: 1, alignItems: 'center', padding: 10, backgroundColor: '#f5f5f5', borderRadius: 8, marginHorizontal: 2 },
   rateText: { fontSize: 18, fontWeight: 'bold', color: '#2e7d32' },
   rateLabel: { fontSize: 12, color: '#666' },
-  
+
   payBtn: { backgroundColor: '#2e7d32', padding: 12, borderRadius: 8, marginTop: 10, alignItems: 'center' },
   payBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
 
@@ -407,6 +434,14 @@ const styles = StyleSheet.create({
   roleOptionSelected: { backgroundColor: '#2e7d32' },
   roleOptionText: { fontSize: 12, color: '#333' },
   roleOptionTextSelected: { color: '#fff' },
+  roleOptionTextSelected: { color: '#fff' },
+
+  landPillsContainer: { flexDirection: 'row', marginBottom: 15 },
+  landPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 8, height: 35, justifyContent: 'center' },
+  landPillSelected: { backgroundColor: '#2e7d32' },
+  landPillText: { fontSize: 12, color: '#666' },
+  landPillTextSelected: { color: '#fff', fontWeight: 'bold' },
+
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   button: { flex: 1, padding: 14, borderRadius: 8, marginHorizontal: 5, alignItems: 'center' },
   cancelButton: { backgroundColor: '#999' },

@@ -81,16 +81,16 @@ export default function DashboardScreen({ navigation }) {
 
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, {color: '#4caf50'}]}>${(financeSummary.income || 0).toFixed(2)}</Text>
+          <Text style={[styles.statNumber, {color: '#4caf50'}]}>LKR {(financeSummary.totalIncome || 0).toLocaleString()}</Text>
           <Text style={styles.statLabel}>Revenue</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, {color: '#f44336'}]}>${(financeSummary.expense || 0).toFixed(2)}</Text>
+          <Text style={[styles.statNumber, {color: '#f44336'}]}>LKR {(financeSummary.totalExpense || 0).toLocaleString()}</Text>
           <Text style={styles.statLabel}>Expenses</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, {color: (financeSummary.profit || 0) >= 0 ? '#4caf50' : '#f44336'}]}>
-             ${(financeSummary.profit || 0).toFixed(2)}
+          <Text style={[styles.statNumber, {color: (financeSummary.netProfit || 0) >= 0 ? '#4caf50' : '#f44336', fontSize: 20}]}>
+             LKR {(financeSummary.netProfit || 0).toLocaleString()}
           </Text>
           <Text style={styles.statLabel}>Profit / Loss</Text>
         </View>

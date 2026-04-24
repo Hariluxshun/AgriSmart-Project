@@ -51,6 +51,10 @@ const laborSchema = new mongoose.Schema({
   joinDate: {
     type: Date,
     default: Date.now
+  },
+  landId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Land'
   }
 });
 

@@ -31,7 +31,7 @@ app.use('/api/labor', laborRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'AgriSmart API is running!',
     version: '1.0.0',
     endpoints: {
@@ -48,8 +48,14 @@ app.get('/', (req, res) => {
 
 // Database connection
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.log('Error:', err));
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch(err => {
+    console.error('❌ MongoDB Connection Error:');
+    console.error('Reason:', err.message);
+    if (err.message.includes('27017')) {
+      console.log('💡 TIP: Port 27017 might be blocked or your IP is not whitelisted in MongoDB Atlas.');
+    }
+  });
 
 // Start server
 const PORT = process.env.PORT || 5000;

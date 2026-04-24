@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { financeService } from '../services/api';
+import { financeService, landService } from '../services/api';
 
 export default function FinanceScreen() {
   const [transactions, setTransactions] = useState([]);
@@ -22,12 +22,15 @@ export default function FinanceScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [transactionType, setTransactionType] = useState('expense');
+  const [lands, setLands] = useState([]);
+  const [activeLandFilter, setActiveLandFilter] = useState('All');
   const [formData, setFormData] = useState({
     type: 'expense',
     category: 'other',
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
+    landId: '',
   });
 
   const categories = {
@@ -54,12 +57,14 @@ export default function FinanceScreen() {
 
   const fetchData = async () => {
     try {
-      const [transactionsRes, profitLossRes] = await Promise.all([
+      const [transactionsRes, profitLossRes, landRes] = await Promise.all([
         financeService.getTransactions(),
         financeService.getProfitLoss(),
+        landService.getAll(),
       ]);
       setTransactions(transactionsRes.data);
       setProfitLoss(profitLossRes.data);
+      setLands(landRes.data || []);
     } catch (error) {
       Alert.alert('Error', 'Failed to fetch financial data');
     } finally {
@@ -117,6 +122,7 @@ export default function FinanceScreen() {
       amount: item.amount?.toString() || '',
       description: item.description || '',
       date: item.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      landId: item.landId?._id || item.landId || '',
     });
     setModalVisible(true);
   };
@@ -146,6 +152,7 @@ export default function FinanceScreen() {
       amount: '',
       description: '',
       date: new Date().toISOString().split('T')[0],
+      landId: '',
     });
   };
 
@@ -174,7 +181,12 @@ export default function FinanceScreen() {
       <View style={styles.transactionLeft}>
         <Text style={styles.transactionCategory}>{categoryLabels[item.category] || item.category}</Text>
         {item.description && <Text style={styles.transactionDesc}>{item.description}</Text>}
-        <Text style={styles.transactionDate}>{new Date(item.date).toLocaleDateString()}</Text>
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <Text style={styles.transactionDate}>{new Date(item.date).toLocaleDateString()}</Text>
+          {item.landId && (
+            <Text style={[styles.transactionDate, {marginLeft: 10, color: '#1976d2'}]}>📍 {item.landId?.location || 'Assigned'}</Text>
+          )}
+        </View>
       </View>
       <View style={styles.transactionRight}>
         <Text style={[styles.transactionAmount, item.type === 'income' ? styles.incomeAmount : styles.expenseAmount]}>
@@ -190,6 +202,18 @@ export default function FinanceScreen() {
     </View>
   );
 
+  const filteredTransactions = transactions.filter(t => {
+    if (activeLandFilter === 'All') return true;
+    const tlandId = t.landId?._id || t.landId;
+    return tlandId === activeLandFilter;
+  });
+
+  const filteredProfitLoss = {
+    totalIncome: filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
+    totalExpense: filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
+  };
+  filteredProfitLoss.netProfit = filteredProfitLoss.totalIncome - filteredProfitLoss.totalExpense;
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -203,26 +227,26 @@ export default function FinanceScreen() {
       <ScrollView>
         {profitLoss && (
           <View style={styles.summaryContainer}>
-            <Text style={styles.summaryLabel}>Net Profit / Loss</Text>
-            <Text style={[styles.summaryAmount, (profitLoss.netProfit || 0) >= 0 ? styles.profit : styles.loss]}>
-              LKR {(profitLoss.netProfit || 0).toLocaleString()}
+            <Text style={styles.summaryLabel}>{activeLandFilter === 'All' ? 'Farm-wide' : 'Plot-specific'} Net Profit / Loss</Text>
+            <Text style={[styles.summaryAmount, filteredProfitLoss.netProfit >= 0 ? styles.profit : styles.loss]}>
+              LKR {filteredProfitLoss.netProfit.toLocaleString()}
             </Text>
             <View style={styles.summaryRow}>
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryItemLabel}>Income</Text>
-                <Text style={styles.incomeText}>LKR {(profitLoss.totalIncome || 0).toLocaleString()}</Text>
+                <Text style={styles.incomeText}>LKR {filteredProfitLoss.totalIncome.toLocaleString()}</Text>
               </View>
             <View style={styles.summaryItem}>
                 <Text style={styles.summaryItemLabel}>Expenses</Text>
-                <Text style={styles.expenseText}>LKR {(profitLoss.totalExpense || 0).toLocaleString()}</Text>
+                <Text style={styles.expenseText}>LKR {filteredProfitLoss.totalExpense.toLocaleString()}</Text>
               </View>
             </View>
 
             {/* Income vs Expense Graph Block */}
-            {((profitLoss?.totalIncome || 0) + (profitLoss?.totalExpense || 0)) > 0 && (
+            {(filteredProfitLoss.totalIncome + filteredProfitLoss.totalExpense) > 0 && (
                 <View style={styles.chartWrapper}>
-                   <View style={[styles.chartBar, { backgroundColor: '#4caf50', width: `${(profitLoss.totalIncome / (profitLoss.totalIncome + profitLoss.totalExpense)) * 100}%` }]} />
-                   <View style={[styles.chartBar, { backgroundColor: '#f44336', width: `${(profitLoss.totalExpense / (profitLoss.totalIncome + profitLoss.totalExpense)) * 100}%` }]} />
+                   <View style={[styles.chartBar, { backgroundColor: '#4caf50', width: `${(filteredProfitLoss.totalIncome / (filteredProfitLoss.totalIncome + filteredProfitLoss.totalExpense)) * 100}%` }]} />
+                   <View style={[styles.chartBar, { backgroundColor: '#f44336', width: `${(filteredProfitLoss.totalExpense / (filteredProfitLoss.totalIncome + filteredProfitLoss.totalExpense)) * 100}%` }]} />
                 </View>
             )}
             <TouchableOpacity style={styles.exportCSVBtn} onPress={exportCSV}>
@@ -232,16 +256,36 @@ export default function FinanceScreen() {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Recent Transactions</Text>
+        <View style={styles.filterSection}>
+           <Text style={styles.sectionTitle}>Transactions Filtered by Plot</Text>
+           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterPills}>
+              <TouchableOpacity 
+                 style={[styles.filterPill, activeLandFilter === 'All' && styles.filterPillActive]} 
+                 onPress={() => setActiveLandFilter('All')}
+              >
+                 <Text style={[styles.filterPillText, activeLandFilter === 'All' && styles.filterPillTextActive]}>All Plots</Text>
+              </TouchableOpacity>
+              {lands.map(l => (
+                 <TouchableOpacity 
+                    key={l._id} 
+                    style={[styles.filterPill, activeLandFilter === l._id && styles.filterPillActive]} 
+                    onPress={() => setActiveLandFilter(l._id)}
+                 >
+                    <Text style={[styles.filterPillText, activeLandFilter === l._id && styles.filterPillTextActive]}>{l.location}</Text>
+                 </TouchableOpacity>
+              ))}
+           </ScrollView>
+        </View>
+
         <FlatList
-          data={transactions}
+          data={filteredTransactions}
           keyExtractor={(item) => item._id}
           renderItem={renderTransaction}
           scrollEnabled={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>💰</Text>
-              <Text style={styles.emptyText}>No transactions yet</Text>
+              <Text style={styles.emptyText}>No matches for this plot</Text>
             </View>
           }
         />
@@ -308,6 +352,19 @@ export default function FinanceScreen() {
               onChangeText={(text) => setFormData({ ...formData, date: text })}
             />
 
+            <Text style={styles.label}>Select Land Plot</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.landPillsContainer}>
+              {lands.map((land) => (
+                <TouchableOpacity
+                  key={land._id}
+                  style={[styles.landPill, formData.landId === land._id && styles.landPillSelected]}
+                  onPress={() => setFormData({ ...formData, landId: land._id })}
+                >
+                  <Text style={[styles.landPillText, formData.landId === land._id && styles.landPillTextSelected]}>{land.location}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => { setModalVisible(false); setEditingItem(null); resetForm(); }}>
                 <Text style={styles.buttonText}>Cancel</Text>
@@ -341,7 +398,14 @@ const styles = StyleSheet.create({
   chartBar: { height: '100%' },
   exportCSVBtn: { marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20 },
 
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', margin: 15, color: '#333' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', margin: 15, marginBottom: 5, color: '#333' },
+  filterSection: { marginBottom: 10 },
+  filterPills: { flexDirection: 'row', paddingHorizontal: 10, marginTop: 5 },
+  filterPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15, backgroundColor: '#e0e0e0', marginRight: 8 },
+  filterPillActive: { backgroundColor: '#2e7d32' },
+  filterPillText: { fontSize: 12, color: '#666' },
+  filterPillTextActive: { color: '#fff', fontWeight: 'bold' },
+
   transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 15, marginVertical: 5, padding: 15, borderRadius: 10 },
   incomeCard: { borderLeftWidth: 4, borderLeftColor: '#4caf50' },
   expenseCard: { borderLeftWidth: 4, borderLeftColor: '#f44336' },
@@ -374,6 +438,14 @@ const styles = StyleSheet.create({
   categoryOptionSelected: { backgroundColor: '#2e7d32' },
   categoryOptionText: { fontSize: 12, color: '#333' },
   categoryOptionTextSelected: { color: '#fff' },
+  categoryOptionTextSelected: { color: '#fff' },
+
+  landPillsContainer: { flexDirection: 'row', marginBottom: 15, marginTop: 5 },
+  landPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 8, height: 35, justifyContent: 'center' },
+  landPillSelected: { backgroundColor: '#2e7d32' },
+  landPillText: { fontSize: 12, color: '#666' },
+  landPillTextSelected: { color: '#fff', fontWeight: 'bold' },
+
   input: { borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16, color: '#212121', fontWeight: '500' },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   button: { flex: 1, padding: 14, borderRadius: 8, marginHorizontal: 5, alignItems: 'center' },

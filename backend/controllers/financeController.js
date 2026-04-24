@@ -20,7 +20,7 @@ const getTransactions = async (req, res) => {
     }
     if (type) query.type = type;
     
-    const transactions = await Transaction.find(query).sort({ date: -1 });
+    const transactions = await Transaction.find(query).populate('landId', 'location').sort({ date: -1 });
     res.json(transactions);
   } catch (error) {
     res.status(500).json({ message: error.message });

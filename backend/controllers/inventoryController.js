@@ -12,7 +12,7 @@ const createItem = async (req, res) => {
 
 const getItems = async (req, res) => {
   try {
-    const items = await Inventory.find({ farmer: req.user.id });
+    const items = await Inventory.find({ farmer: req.user.id }).populate('landId', 'location');
     
     // Add alert flag for low stock
     const itemsWithAlerts = items.map(item => ({

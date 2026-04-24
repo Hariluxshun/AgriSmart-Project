@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { landService, authService } from '../services/api';
+import { landService, authService, inventoryService, machineryService, laborService } from '../services/api';
 
 export default function FarmProfileScreen() {
   const [activeTab, setActiveTab] = useState('profile');
@@ -27,6 +27,9 @@ export default function FarmProfileScreen() {
 
   // Lands State
   const [lands, setLands] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [machinery, setMachinery] = useState([]);
+  const [laborers, setLaborers] = useState([]);
   const [totalArea, setTotalArea] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -52,9 +55,12 @@ export default function FarmProfileScreen() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [profileRes, landsRes] = await Promise.all([
+      const [profileRes, landsRes, invRes, macRes, labRes] = await Promise.all([
         authService.getMe(),
         landService.getAll(),
+        inventoryService.getAll(),
+        machineryService.getAll(),
+        laborService.getAll(),
       ]);
 
       setProfile({
@@ -65,6 +71,9 @@ export default function FarmProfileScreen() {
 
       const fetchedLands = landsRes.data || [];
       setLands(fetchedLands);
+      setInventory(invRes.data || []);
+      setMachinery(macRes.data.all || []); // Handling machinery grouped response
+      setLaborers(labRes.data.all || []); // Handling labor grouped response
 
       // Calculate Total Land Area (Assuming all in acres for simplicity)
       const total = fetchedLands.reduce((sum, land) => sum + (land.size?.value || 0), 0);
@@ -370,6 +379,12 @@ export default function FarmProfileScreen() {
         🌱 N:{item.soilDetails?.nitrogen} | P:{item.soilDetails?.phosphorus} | 
         K:{item.soilDetails?.potassium} | pH:{item.soilDetails?.ph}
       </Text>
+
+      <View style={styles.resourceSummary}>
+         <View style={styles.resourceBadge}><Text style={styles.resourceText}>📦 {inventory.filter(i => (i.landId?._id || i.landId) === item._id).length} Items</Text></View>
+         <View style={styles.resourceBadge}><Text style={styles.resourceText}>🚜 {machinery.filter(m => (m.landId?._id || m.landId) === item._id).length} Assets</Text></View>
+         <View style={styles.resourceBadge}><Text style={styles.resourceText}>👷‍♂️ {laborers.filter(l => (l.landId?._id || l.landId) === item._id).length} Workers</Text></View>
+      </View>
     </View>
   );
 
@@ -465,12 +480,44 @@ export default function FarmProfileScreen() {
                />
             </View>
             
-            <TextInput placeholderTextColor="#666"
-               style={styles.input}
-               placeholder="Soil Type (clay, sandy, loam, other)"
-               value={formData.soilType}
-               onChangeText={(text) => setFormData({ ...formData, soilType: text })}
-            />
+            <Text style={styles.sectionLabel}>Soil Type</Text>
+            <View style={styles.categoryContainer}>
+              {['clay', 'sandy', 'red soil', 'other'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.categoryOption,
+                    (formData.soilType === type || (type === 'other' && !['clay', 'sandy', 'red soil'].includes(formData.soilType) && formData.soilType !== '')) && styles.categoryOptionSelected
+                  ]}
+                  onPress={() => {
+                    if (type === 'other') {
+                      if (['clay', 'sandy', 'red soil'].includes(formData.soilType)) {
+                        setFormData({ ...formData, soilType: '' });
+                      }
+                    } else {
+                      setFormData({ ...formData, soilType: type });
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.categoryOptionText,
+                    (formData.soilType === type || (type === 'other' && !['clay', 'sandy', 'red soil'].includes(formData.soilType) && formData.soilType !== '')) && styles.categoryOptionTextSelected
+                  ]}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {(!['clay', 'sandy', 'red soil'].includes(formData.soilType) || formData.soilType === 'other') && (
+              <TextInput 
+                placeholderTextColor="#666"
+                style={styles.input}
+                placeholder="Type soil type here..."
+                value={['clay', 'sandy', 'red soil'].includes(formData.soilType) ? '' : formData.soilType}
+                onChangeText={(text) => setFormData({ ...formData, soilType: text })}
+              />
+            )}
 
             <Text style={styles.sectionLabel}>Soil Nutrients</Text>
             <View style={styles.gridRow}>
@@ -571,6 +618,10 @@ const styles = StyleSheet.create({
   sizeText: { fontSize: 14, color: '#666', marginTop: 5 },
   soilText: { fontSize: 12, color: '#999', marginTop: 5 },
   
+  resourceSummary: { flexDirection: 'row', marginTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 10 },
+  resourceBadge: { backgroundColor: '#f5f5f5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 8 },
+  resourceText: { fontSize: 11, fontWeight: 'bold', color: '#555' },
+
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyIcon: { fontSize: 60, marginBottom: 20 },
   emptyText: { fontSize: 18, color: '#999' },
@@ -597,4 +648,10 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 
   mapActions: { position: 'absolute', bottom: 20, left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between' },
+
+  categoryContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
+  categoryOption: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 20, backgroundColor: '#e0e0e0', margin: 4 },
+  categoryOptionSelected: { backgroundColor: '#2e7d32' },
+  categoryOptionText: { fontSize: 14, color: '#333', fontWeight: 'bold' },
+  categoryOptionTextSelected: { color: '#fff' },
 });

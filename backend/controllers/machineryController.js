@@ -12,7 +12,7 @@ const createAsset = async (req, res) => {
 
 const getAssets = async (req, res) => {
   try {
-    const assets = await Machinery.find({ farmer: req.user.id });
+    const assets = await Machinery.find({ farmer: req.user.id }).populate('landId', 'location');
     
     // Group by status for dashboard
     const dashboard = {

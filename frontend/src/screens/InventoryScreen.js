@@ -11,13 +11,14 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { inventoryService } from '../services/api';
+import { inventoryService, landService } from '../services/api';
 
 export default function InventoryScreen() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [lands, setLands] = useState([]);
   
   // Filtering state
   const [activeFilter, setActiveFilter] = useState('All');
@@ -32,6 +33,7 @@ export default function InventoryScreen() {
     expiryDate: '',
     supplierName: '',
     supplierContact: '',
+    landId: '',
   });
 
   const categories = [
@@ -43,15 +45,20 @@ export default function InventoryScreen() {
   ];
 
   useEffect(() => {
-    fetchItems();
+    fetchData();
   }, []);
 
-  const fetchItems = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const response = await inventoryService.getAll();
-      setItems(response.data);
+      const [invRes, landRes] = await Promise.all([
+        inventoryService.getAll(),
+        landService.getAll()
+      ]);
+      setItems(invRes.data);
+      setLands(landRes.data || []);
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch inventory');
+      Alert.alert('Error', 'Failed to fetch inventory or lands');
     } finally {
       setLoading(false);
     }
@@ -73,12 +80,13 @@ export default function InventoryScreen() {
         supplier: {
           name: formData.supplierName,
           contact: formData.supplierContact,
-        }
+        },
+        landId: formData.landId || undefined
       });
       Alert.alert('Success', 'Item added successfully');
       setModalVisible(false);
       resetForm();
-      fetchItems();
+      fetchData();
     } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to create item');
     }
@@ -96,13 +104,14 @@ export default function InventoryScreen() {
         supplier: {
           name: formData.supplierName,
           contact: formData.supplierContact,
-        }
+        },
+        landId: formData.landId || undefined
       });
       Alert.alert('Success', 'Item updated successfully');
       setModalVisible(false);
       setEditingItem(null);
       resetForm();
-      fetchItems();
+      fetchData();
     } catch (error) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to update item');
     }
@@ -117,7 +126,7 @@ export default function InventoryScreen() {
         onPress: async () => {
           try {
             await inventoryService.delete(id);
-            fetchItems();
+            fetchData();
           } catch (error) {
             Alert.alert('Error', 'Failed to delete item');
           }
@@ -131,7 +140,7 @@ export default function InventoryScreen() {
     // Allow negative stock gracefully if requested
     try {
       await inventoryService.update(id, { quantity: newQuantity });
-      fetchItems();
+      fetchData();
     } catch (error) {
       Alert.alert('Error', 'Failed to update quantity');
     }
@@ -147,6 +156,7 @@ export default function InventoryScreen() {
       expiryDate: '',
       supplierName: '',
       supplierContact: '',
+      landId: '',
     });
   };
 
@@ -161,6 +171,7 @@ export default function InventoryScreen() {
       expiryDate: item.expiryDate ? item.expiryDate.split('T')[0] : '',
       supplierName: item.supplier?.name || '',
       supplierContact: item.supplier?.contact || '',
+      landId: item.landId?._id || item.landId || '',
     });
     setModalVisible(true);
   };
@@ -194,6 +205,11 @@ export default function InventoryScreen() {
               {isExpired && (
                 <View style={[styles.categoryBadge, { backgroundColor: '#e53935' }]}>
                    <Text style={styles.categoryText}>EXPIRED</Text>
+                </View>
+              )}
+              {item.landId && (
+                <View style={[styles.categoryBadge, { backgroundColor: '#e3f2fd' }]}>
+                   <Text style={[styles.categoryText, { color: '#1976d2' }]}>📍 {item.landId?.location || 'Assigned'}</Text>
                 </View>
               )}
             </View>
@@ -305,6 +321,19 @@ export default function InventoryScreen() {
             <TextInput placeholderTextColor="#666" style={styles.input} placeholder="Supplier Name" value={formData.supplierName} onChangeText={(text) => setFormData({ ...formData, supplierName: text })} />
             <TextInput placeholderTextColor="#666" style={styles.input} placeholder="Supplier Contact Number" value={formData.supplierContact} onChangeText={(text) => setFormData({ ...formData, supplierContact: text })} keyboardType="phone-pad" />
 
+            <Text style={styles.label}>Storage / Plot Location</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.landPillsContainer}>
+              {lands.map((land) => (
+                <TouchableOpacity
+                  key={land._id}
+                  style={[styles.landPill, formData.landId === land._id && styles.landPillSelected]}
+                  onPress={() => setFormData({ ...formData, landId: land._id })}
+                >
+                  <Text style={[styles.landPillText, formData.landId === land._id && styles.landPillTextSelected]}>{land.location}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => { setModalVisible(false); setEditingItem(null); resetForm(); }}>
                 <Text style={styles.buttonText}>Cancel</Text>
@@ -369,6 +398,14 @@ const styles = StyleSheet.create({
   categoryOptionSelected: { backgroundColor: '#2e7d32' },
   categoryOptionText: { fontSize: 12, color: '#333' },
   categoryOptionTextSelected: { color: '#fff' },
+  categoryOptionTextSelected: { color: '#fff' },
+  
+  landPillsContainer: { flexDirection: 'row', marginBottom: 15 },
+  landPill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f0f0', marginRight: 8, height: 35, justifyContent: 'center' },
+  landPillSelected: { backgroundColor: '#2e7d32' },
+  landPillText: { fontSize: 12, color: '#666' },
+  landPillTextSelected: { color: '#fff', fontWeight: 'bold' },
+
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   button: { flex: 1, padding: 14, borderRadius: 8, marginHorizontal: 5, alignItems: 'center' },
   cancelButton: { backgroundColor: '#999' },
