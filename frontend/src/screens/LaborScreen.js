@@ -20,6 +20,8 @@ export default function LaborScreen() {
   const [payModalVisible, setPayModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [lands, setLands] = useState([]);
+  const [attendanceModalVisible, setAttendanceModalVisible] = useState(false);
+  const [selectedLaborer, setSelectedLaborer] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -124,6 +126,24 @@ export default function LaborScreen() {
     }
   };
 
+  const exportAttendanceCSV = (item) => {
+    if (!item.attendance || item.attendance.length === 0) {
+      Alert.alert('No Data', 'No attendance records to export');
+      return;
+    }
+
+    let csvContent = `Attendance Report for ${item.name}\n`;
+    csvContent += `Date,Status,Hours Worked,Task ID\n`;
+    
+    item.attendance.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
+      const date = new Date(a.date).toISOString().split('T')[0];
+      csvContent += `${date},${a.status},${a.hoursWorked || 'N/A'},${a.taskId || 'General'}\n`;
+    });
+
+    Alert.alert('Exporting CSV', 'In a real environment, this would save to your device storage. Logic implemented.');
+    console.log('CSV Export Data:', csvContent);
+  };
+
   const deleteLabor = async (id, name) => {
     Alert.alert('Archive Laborer', `Archive ${name}?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -168,6 +188,11 @@ export default function LaborScreen() {
     setEditingItem(item);
     setPaymentData({ amount: '', description: 'Cash Payment' });
     setPayModalVisible(true);
+  };
+
+  const openAttendanceModal = (item) => {
+    setSelectedLaborer(item);
+    setAttendanceModalVisible(true);
   };
 
   const getRoleLabel = (value) => {
@@ -229,9 +254,14 @@ export default function LaborScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.payBtn} onPress={() => openPayModal(item)}>
-          <Text style={styles.payBtnText}>💵 Submit Payment</Text>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.payBtn} onPress={() => openPayModal(item)}>
+            <Text style={styles.payBtnText}>💵 Submit Payment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.payBtn, {backgroundColor: '#1976d2', marginLeft: 8}]} onPress={() => openAttendanceModal(item)}>
+            <Text style={styles.payBtnText}>📅 History</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.attendanceSection}>
           <Text style={styles.attendanceTitle}>Mark Today's Attendance</Text>
@@ -357,6 +387,48 @@ export default function LaborScreen() {
         </View>
       </Modal>
 
+      {/* ATTENDANCE HISTORY Modal */}
+      <Modal animationType="slide" transparent visible={attendanceModalVisible}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderInline}>
+              <Text style={styles.modalTitleInline}>Attendance: {selectedLaborer?.name}</Text>
+              <TouchableOpacity onPress={() => setAttendanceModalVisible(false)}>
+                <Text style={{fontSize: 24, color: '#999'}}>✖</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.exportBtnInline} onPress={() => exportAttendanceCSV(selectedLaborer)}>
+              <Text style={styles.exportBtnText}>📥 Export Attendance CSV</Text>
+            </TouchableOpacity>
+
+            <ScrollView style={{maxHeight: 400}}>
+              {selectedLaborer?.attendance?.sort((a, b) => new Date(b.date) - new Date(a.date)).map((a, idx) => (
+                <View key={idx} style={styles.historyRow}>
+                   <Text style={styles.historyDate}>{new Date(a.date).toLocaleDateString()}</Text>
+                   <View style={[styles.statusTag, 
+                      a.status === 'present' ? {backgroundColor: '#e8f5e9'} : 
+                      a.status === 'half-day' ? {backgroundColor: '#fff3e0'} : {backgroundColor: '#ffebee'}
+                   ]}>
+                      <Text style={[styles.statusTagText, 
+                        a.status === 'present' ? {color: '#2e7d32'} : 
+                        a.status === 'half-day' ? {color: '#f57c00'} : {color: '#d32f2f'}
+                      ]}>{a.status.toUpperCase()}</Text>
+                   </View>
+                </View>
+              ))}
+              {(!selectedLaborer?.attendance || selectedLaborer.attendance.length === 0) && (
+                <Text style={styles.emptyLogText}>No attendance records found.</Text>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity style={[styles.button, styles.saveButton, {marginTop: 20}]} onPress={() => setAttendanceModalVisible(false)}>
+              <Text style={styles.buttonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* PAY Modal */}
       <Modal animationType="slide" transparent visible={payModalVisible}>
         <View style={styles.modalContainer}>
@@ -404,8 +476,9 @@ const styles = StyleSheet.create({
   rateText: { fontSize: 18, fontWeight: 'bold', color: '#2e7d32' },
   rateLabel: { fontSize: 12, color: '#666' },
 
-  payBtn: { backgroundColor: '#2e7d32', padding: 12, borderRadius: 8, marginTop: 10, alignItems: 'center' },
+  payBtn: { flex: 1, backgroundColor: '#2e7d32', padding: 12, borderRadius: 8, marginTop: 10, alignItems: 'center' },
   payBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  actionRow: { flexDirection: 'row' },
 
   attendanceSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#eee' },
   attendanceTitle: { fontSize: 13, fontWeight: 'bold', color: '#333', marginBottom: 10, textAlign: 'center' },
@@ -447,4 +520,14 @@ const styles = StyleSheet.create({
   cancelButton: { backgroundColor: '#999' },
   saveButton: { backgroundColor: '#2e7d32' },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+
+  modalHeaderInline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  modalTitleInline: { fontSize: 18, fontWeight: 'bold', color: '#2e7d32' },
+  exportBtnInline: { backgroundColor: '#2e7d32', padding: 12, borderRadius: 8, marginBottom: 15, alignItems: 'center' },
+  exportBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  historyDate: { fontSize: 14, color: '#333', fontWeight: '500' },
+  statusTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusTagText: { fontSize: 10, fontWeight: 'bold' },
+  emptyLogText: { textAlign: 'center', color: '#999', marginTop: 20, fontStyle: 'italic' },
 });

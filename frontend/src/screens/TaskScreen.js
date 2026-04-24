@@ -554,9 +554,9 @@ export default function TaskScreen() {
             </View>
             
             {pickerMode && (
-               <View style={{ backgroundColor: '#f1f8e9', padding: 12, borderRadius: 12, marginVertical: 10, borderWidth: 1, borderColor: '#c8e6c9', elevation: 4 }}>
-                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#a5d6a7', paddingBottom: 8 }}>
-                    <Text style={{ fontWeight: 'bold', color: '#1b5e20', fontSize: 15 }}>{pickerMode === 'start' ? '📅 Set Start Date' : '🏁 Set Deadline'}</Text>
+               <View style={{ backgroundColor: '#1e1e1e', padding: 12, borderRadius: 12, marginVertical: 10, borderWidth: 1, borderColor: '#333', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 }}>
+                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#333', paddingBottom: 8 }}>
+                    <Text style={{ fontWeight: 'bold', color: '#81c784', fontSize: 15 }}>{pickerMode === 'start' ? '📅 Set Start Date' : '🏁 Set Deadline'}</Text>
                     <TouchableOpacity onPress={() => setPickerMode(null)} style={{ backgroundColor: '#2e7d32', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Done</Text>
                     </TouchableOpacity>
@@ -565,7 +565,10 @@ export default function TaskScreen() {
                    value={taskForm[pickerMode === 'start' ? 'startDate' : 'dueDate'] || new Date()}
                    mode="date"
                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                   style={{ backgroundColor: 'transparent' }}
+                   style={{ height: Platform.OS === 'ios' ? 320 : undefined }}
+                   textColor="#ffffff"
+                   accentColor="#4caf50"
+                   themeVariant="dark"
                    onChange={(e, val) => {
                      if (Platform.OS === 'android') {
                        setPickerMode(null);
